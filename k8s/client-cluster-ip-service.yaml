@@ -1,0 +1,15 @@
+# ClusterIp Service allows inner objects to communicate
+apiVersion: v1
+kind: Service
+metadata:
+    name: client-cluster-ip-service
+spec:
+    type: ClusterIP
+    selector:
+        component: web
+
+    ports:
+        - port: 3000
+          targetPort: 3000
+          # we don't have something like "nodePort" here.
+          # because ClusterIp doesn't have access to outside world
