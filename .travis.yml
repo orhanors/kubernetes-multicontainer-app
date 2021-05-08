@@ -2,9 +2,52 @@ sudo: required
 services:
     - docker
 
+env:
+    global:
+        #Unique identifier for each docker image tag. We get from latest git commit
+        - SHA=$(git rev-parse HEAD)
+
+        #Don't show any promtp on gcloud
+        - CLOUDSDK_CORE_DISABLE_PROMPTS=1
+
+#before_install
+#we have encrypted gcloud service-account.json file
+#travis will use it
 before_install:
+    ## GOOGLE CLOUD ##
+
+    #this will decrypt encrypted service-account.json.enc file
     - openssl aes-256-cbc -K $encrypted_9f3b5599b056_key -iv $encrypted_9f3b5599b056_iv -in service-account.json.enc -out service-account.json -d
     - curl https://sdk.cloud.google.com | bash > /dev/null;
     - source $HOME/google-cloud-sdk/path.bash.inc
     - gcloud components update kubectl
+
+    #we tell gcloud to use decrypted service-account.json file
     - gcloud auth activate-service-account --key-file service-account.json
+
+    #we tell gcloud our project name
+    - gcloud config set project pure-archive-312918
+
+    #we tell gcloud about our zone
+    - gcloud config set compute/zone europe-central2-a
+
+    - gcloud container clusters get-credentials multi-cluster
+
+    ## DOCKER ##
+
+    #login docker
+    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
+    #generate tests
+    - docker build -t orhanors/react-test -f ./client/Dockerfile.dev ./client
+
+script:
+    #run the test scripts
+    - docker run -e CI=true orhanors/react-test npm test
+
+deploy:
+    #Don't use any provider, we'll create a deploy.sh and travis'll use it
+    provider: script
+    script: bash ./deploy.sh
+    on:
+        branch: master
